@@ -48,7 +48,7 @@ func findTranscript(config string, pid int, cwd string) (string, error) {
 	dir := projectDir(config, cwd)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return "", fmt.Errorf("нет транскриптов сессий для %s: %w", cwd, err)
+		return "", fmt.Errorf(tr("нет транскриптов сессий для %s: %w"), cwd, err)
 	}
 	newest, at := "", int64(0)
 	for _, e := range entries {
@@ -60,7 +60,7 @@ func findTranscript(config string, pid int, cwd string) (string, error) {
 		}
 	}
 	if newest == "" {
-		return "", fmt.Errorf("нет транскриптов сессий в %s", dir)
+		return "", fmt.Errorf(tr("нет транскриптов сессий в %s"), dir)
 	}
 	return newest, nil
 }
@@ -94,7 +94,7 @@ var commandName = regexp.MustCompile(`^<command-name>([^<]*)</command-name>`)
 // comes back in a user row too.
 func promptOf(row transcriptRow) (string, bool) {
 	if row.IsCompactSummary {
-		return "(продолжение после сжатия контекста)", true
+		return tr("(продолжение после сжатия контекста)"), true
 	}
 	var text string
 	if json.Unmarshal(row.Message.Content, &text) == nil {

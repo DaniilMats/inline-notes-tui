@@ -172,10 +172,10 @@ func (r Review) toggleSelection() Review {
 	r.Armed = ""
 	if r.Anchor < 0 {
 		r.Anchor = r.Cursor
-		r.Status = fmt.Sprintf("Выделение с L%d: двигайте курсор, затем Enter. v снимает.", r.Cursor+1)
+		r.Status = tr("Выделение с L%d: двигайте курсор, затем Enter. v снимает.", r.Cursor+1)
 	} else {
 		r.Anchor = -1
-		r.Status = "Выделение снято."
+		r.Status = tr("Выделение снято.")
 	}
 	return r
 }
@@ -189,7 +189,7 @@ func (r Review) startAdd() Review {
 	}
 	r.Status = ""
 	if blank {
-		r.Status = lineRef(start, end) + " — пустая строка: в промпт она уйдёт как «∅»."
+		r.Status = tr("%s — пустая строка: в промпт она уйдёт как «∅».", lineRef(start, end))
 	}
 	r.Draft, r.Armed = &Draft{Start: start, End: end}, ""
 	return r
@@ -206,7 +206,7 @@ func (r Review) startEdit(id int) (Review, string) {
 		found = &r.Comments[i]
 	}
 	if found == nil {
-		r.Status = "На этой строке нет комментария."
+		r.Status = tr("На этой строке нет комментария.")
 		return r, ""
 	}
 	r.Draft, r.Armed, r.Status = &Draft{ID: found.ID, Start: found.Start, End: found.End}, "", ""
@@ -221,7 +221,7 @@ func (r Review) saveDraft(value string) Review {
 	r.Draft = nil
 	body := strings.TrimSpace(value)
 	if body == "" {
-		r.Status = "Пустой комментарий отброшен."
+		r.Status = tr("Пустой комментарий отброшен.")
 		return r
 	}
 	r.Anchor = -1
@@ -232,7 +232,7 @@ func (r Review) saveDraft(value string) Review {
 				comments[i].Body = body
 			}
 		}
-		r.Comments, r.Status = comments, fmt.Sprintf("#%d изменён.", d.ID)
+		r.Comments, r.Status = comments, tr("#%d изменён.", d.ID)
 		return r
 	}
 	added := Comment{ID: r.NextID, Start: d.Start, End: d.End, Body: body}
@@ -247,30 +247,30 @@ func (r Review) saveDraft(value string) Review {
 		return a.ID - b.ID
 	})
 	r.Comments, r.NextID = comments, r.NextID+1
-	r.Status = fmt.Sprintf("#%d добавлен на %s.", added.ID, lineRef(added.Start, added.End))
+	r.Status = tr("#%d добавлен на %s.", added.ID, lineRef(added.Start, added.End))
 	return r
 }
 
 func (r Review) cancelDraft() Review {
-	r.Draft, r.Status = nil, "Комментарий не сохранён."
+	r.Draft, r.Status = nil, tr("Комментарий не сохранён.")
 	return r
 }
 
 func (r Review) deleteAtCursor() Review {
 	at := r.commentsAtCursor()
 	if len(at) == 0 {
-		r.Status = "На этой строке нет комментария."
+		r.Status = tr("На этой строке нет комментария.")
 		return r
 	}
 	id := at[0].ID
 	r.Comments = slices.DeleteFunc(slices.Clone(r.Comments), func(c Comment) bool { return c.ID == id })
-	r.Armed, r.Status = "", fmt.Sprintf("#%d удалён.", id)
+	r.Armed, r.Status = "", tr("#%d удалён.", id)
 	return r
 }
 
 func (r Review) jumpNext() Review {
 	if len(r.Comments) == 0 {
-		r.Status = "Комментариев пока нет."
+		r.Status = tr("Комментариев пока нет.")
 		return r
 	}
 	// Past the cursor's block when rendered: a comment inside it would snap back to it.
@@ -290,7 +290,7 @@ func (r Review) jumpNext() Review {
 
 func (r Review) jumpPrev() Review {
 	if len(r.Comments) == 0 {
-		r.Status = "Комментариев пока нет."
+		r.Status = tr("Комментариев пока нет.")
 		return r
 	}
 	target := r.Comments[len(r.Comments)-1]
@@ -315,7 +315,7 @@ const (
 func (r Review) arm(what string) (Review, string) {
 	if what == outSubmit {
 		if len(r.Comments) == 0 {
-			r.Status = "Нечего отправлять: комментариев нет."
+			r.Status = tr("Нечего отправлять: комментариев нет.")
 			return r, ""
 		}
 		return r, outSubmit
@@ -324,12 +324,18 @@ func (r Review) arm(what string) (Review, string) {
 		return r, outCancel
 	}
 	r.Armed = outCancel
-	r.Status = fmt.Sprintf("Нажмите q ещё раз, чтобы выбросить %s.", commentCount(len(r.Comments)))
+	r.Status = tr("Нажмите q ещё раз, чтобы выбросить %s.", commentCount(len(r.Comments)))
 	return r, ""
 }
 
-// commentCount: `1 комментарий`, `3 комментария`, `5 комментариев`.
+// commentCount: `1 комментарий`, `3 комментария`, `5 комментариев`; `1 comment`, `5 comments`.
 func commentCount(n int) string {
+	if lang == "en" {
+		if n == 1 {
+			return "1 comment"
+		}
+		return fmt.Sprintf("%d comments", n)
+	}
 	tens, ones := n%100, n%10
 	form := "комментариев"
 	switch {
@@ -353,7 +359,7 @@ func quoted(lines []string, start, end int) string {
 		out = append(out, fmt.Sprintf("> %d: %s", start+i+1, line))
 	}
 	if len(picked) > most {
-		out = append(out, fmt.Sprintf("> … ещё %d строк(и)", len(picked)-most))
+		out = append(out, "> "+tr("… ещё %d строк(и)", len(picked)-most))
 	}
 	return strings.Join(out, "\n")
 }
@@ -362,14 +368,11 @@ func (r Review) buildPrompt() string {
 	var blocks []string
 	for i, c := range r.Comments {
 		blocks = append(blocks, strings.Join([]string{
-			fmt.Sprintf("%d. %s", i+1, lineRef(c.Start, c.End)), quoted(r.Lines, c.Start, c.End), "Комментарий:", c.Body,
+			fmt.Sprintf("%d. %s", i+1, lineRef(c.Start, c.End)), quoted(r.Lines, c.Start, c.End), tr("Комментарий:"), c.Body,
 		}, "\n"))
 	}
-	return fmt.Sprintf(`У меня есть inline-комментарии к твоему ответу #%d.
-
-Пожалуйста, обработай их одним ответом: пройди по каждому пункту, объясни что меняешь/уточняешь, и если уместно — дай обновлённую версию ответа. Не игнорируй ни один комментарий.
-
-%s`, r.Index, strings.Join(blocks, "\n\n"))
+	intro := "У меня есть inline-комментарии к твоему ответу #%d.\n\nПожалуйста, обработай их одним ответом: пройди по каждому пункту, объясни что меняешь/уточняешь, и если уместно — дай обновлённую версию ответа. Не игнорируй ни один комментарий."
+	return tr(intro, r.Index) + "\n\n" + strings.Join(blocks, "\n\n")
 }
 
 // The same physical keys on the Russian ЙЦУКЕН layout: о is j, л is k, П is G.

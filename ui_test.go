@@ -68,7 +68,7 @@ func click(m model, y int) model {
 }
 
 func TestClicksMoveCommentAndEdit(t *testing.T) {
-	m := sized([]string{"старый ответ", reply}, 80, 20)
+	m := press(sized([]string{"старый ответ", reply}, 80, 20), "m") // the source: a click picks a line
 	if m.r.Index != 2 || m.r.Text != reply {
 		t.Fatal("the last reply is reviewed")
 	}
@@ -102,7 +102,8 @@ func TestClicksMoveCommentAndEdit(t *testing.T) {
 }
 
 func TestKeysWhileTypingGoToTheComment(t *testing.T) {
-	m := press(sized([]string{reply}, 80, 20), "enter")
+	// The source, so the comment is on the first line alone.
+	m := press(sized([]string{reply}, 80, 20), "m", "enter")
 	m = typed(m, "jqs?[") // the review's keys, typed into the field
 	if m.outcome != "" || m.r.Help || !strings.Contains(m.field.Value(), "jqs?[") {
 		t.Fatalf("keys went to the review: %q %q", m.outcome, m.field.Value())
@@ -117,9 +118,9 @@ func TestKeysWhileTypingGoToTheComment(t *testing.T) {
 }
 
 func TestRenderedClicksLandOnBlocks(t *testing.T) {
-	m := press(sized([]string{md}, 80, 40), "m")
+	m := sized([]string{md}, 80, 40)
 	if !m.r.Preview {
-		t.Fatal("m renders")
+		t.Fatal("a reply opens rendered")
 	}
 	screen := ansi.Strip(m.View().Content)
 	if strings.Contains(screen, "```") || strings.Contains(screen, "|---|") {
@@ -151,7 +152,7 @@ func TestTablesKeepTheirWidthAndBlocksTheirRows(t *testing.T) {
 	if tableWidth([]string{"| a |", "текст"}) != 0 || tableWidth([]string{"| a |"}) != 0 {
 		t.Fatal("only a whole table has a width")
 	}
-	m := press(sized([]string{"абзац\n\n" + strings.Join(table, "\n") + "\n\n1. первый шаг"}, 100, 30), "m")
+	m := sized([]string{"абзац\n\n" + strings.Join(table, "\n") + "\n\n1. первый шаг"}, 100, 30)
 	head := strings.Split(ansi.Strip(m.View().Content), "\n")[rowOf(t, m, "Колонка")]
 	if got := len([]rune(strings.TrimRight(head, " "))); got > padX+blockGutter+20 {
 		t.Fatalf("the table is stretched to %d cells: %q", got, head)
@@ -159,7 +160,7 @@ func TestTablesKeepTheirWidthAndBlocksTheirRows(t *testing.T) {
 	if rowOf(t, m, "первый шаг")-rowOf(t, m, "жирный") != 2 {
 		t.Fatal("a block takes its own rows and one blank row before the next, no more")
 	}
-	long := sized([]string{strings.Repeat("слово ", 40)}, 60, 20)
+	long := press(sized([]string{strings.Repeat("слово ", 40)}, 60, 20), "m")
 	lines := strings.Split(ansi.Strip(long.View().Content), "\n")
 	first := rowOf(t, long, "▌ 1 ")
 	col := func(s string) int { return len([]rune(s[:strings.IndexRune(s, '│')])) }
@@ -170,7 +171,7 @@ func TestTablesKeepTheirWidthAndBlocksTheirRows(t *testing.T) {
 
 func TestWindowFollowsTheCursorAndTheField(t *testing.T) {
 	long := strings.Repeat("строка\n", 60) + "последняя"
-	m := sized([]string{long}, 60, 15)
+	m := press(sized([]string{long}, 60, 15), "m")
 	m = press(m, "G")
 	rowOf(t, m, "последняя")
 	m = press(m, "g")

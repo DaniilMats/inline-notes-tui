@@ -23,7 +23,7 @@ A long answer from Claude rarely needs one reply. It needs ten small ones: *this
 
 ## Features
 
-- **Line, range and block comments.** Comment on any line, select a range with `v` first, or switch to rendered Markdown (`m`) and comment on a whole paragraph, table or code block.
+- **Block, line and range comments.** A reply opens as rendered Markdown, where a comment takes a whole paragraph, table or code block. `m` switches to the numbered source lines: comment on any line there, or select a range with `v` first.
 - **Any reply, not just the last.** `r` lists the session's replies, one per prompt you sent: what you asked and how the reply begins. Pick one with the arrows or the mouse.
 - **One prompt back.** `s` builds one prompt that quotes the numbered lines of every comment and puts it after whatever you had already typed in the prompt box. It is not sent: read it, add a screenshot if you like, press Enter.
 - **A real text field.** Comments are typed in a proper field: the arrows, `⇧Enter` for a new line, paste and dictation work as in any editor.
@@ -40,7 +40,7 @@ A long answer from Claude rarely needs one reply. It needs ten small ones: *this
 | <img src="assets/list.png" alt="The list of replies: what was asked, and how each reply begins"> | <img src="assets/prompt.png" alt="Claude Code's prompt box holding the prompt: numbered quotes of the lines and a comment under each"> |
 
 > [!NOTE]
-> The interface text is in Russian. The prompt it builds is in Russian too, so Claude usually answers the comments in Russian.
+> The interface and the prompt it builds are in Russian unless you [switch them to English](#language); Claude usually answers in the prompt's language.
 
 ## Install
 
@@ -58,9 +58,24 @@ It needs Go 1.26 or newer; an older `go` downloads that toolchain on its own. Th
 
 `go env GOPATH` prints the folder; the binary is in its `bin`. The variable applies inside Claude Code only, your shell keeps its editor. Start a new Claude Code session to pick it up.
 
+### Language
+
+The interface and the prompt are in Russian unless `INLINE_NOTES_LANG` is `en`, which switches both to English. Set it beside `VISUAL`:
+
+```json
+{
+  "env": {
+    "VISUAL": "/Users/you/go/bin/inline-notes-tui",
+    "INLINE_NOTES_LANG": "en"
+  }
+}
+```
+
+Any other value keeps Russian, and the review's header says so. The keys work on the Russian layout in either language.
+
 ## Usage
 
-After Claude replies, press `Ctrl+G`. The last reply opens with numbered lines.
+After Claude replies, press `Ctrl+G`. The last reply opens as rendered Markdown; `m` shows its numbered source lines.
 
 | Key | Action |
 | --- | --- |
@@ -107,7 +122,7 @@ go test ./...
 go run . -transcript ~/.claude/projects/<cwd>/<session>.jsonl   # review a transcript; the prompt goes to stdout
 ```
 
-The review logic is pure state transitions in [`review.go`](review.go), the screen is [`ui.go`](ui.go) (bubbletea), and [`transcript.go`](transcript.go) finds the session and its replies.
+The review logic is pure state transitions in [`review.go`](review.go), the screen is [`ui.go`](ui.go) (bubbletea), and [`transcript.go`](transcript.go) finds the session and its replies. The code says everything in Russian; [`i18n.go`](i18n.go) holds the English for each string, and a test fails when one is missing.
 
 ## License
 

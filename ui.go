@@ -67,10 +67,12 @@ func newModel(replies []Reply, pick int, file string) model {
 	f.MinHeight = 1
 	f.MaxHeight = 12
 	f.MaxContentHeight = 5000
-	f.Placeholder = "Enter — сохранить · ⇧Enter — новая строка · Esc — отмена"
+	f.Placeholder = tr("Enter — сохранить · ⇧Enter — новая строка · Esc — отмена")
 	f.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter", "alt+enter", "ctrl+j"))
 	f.SetVirtualCursor(false) // the terminal's own caret, where dictation and IME put text
 	m := model{r: newReview(pick+1, replies[pick].Text), replies: replies, pick: pick, file: file, dark: true, field: f, box: -1}
+	m.r.Preview = true // a reply is Markdown: it opens rendered, m shows the source
+	m.r = m.r.setCursor(0)
 	m.restyle()
 	return m
 }
@@ -233,9 +235,9 @@ func (m *model) switchReply(by int) {
 	next := m.pick + by
 	switch {
 	case len(m.r.Comments) > 0:
-		m.r.Status = pinned
+		m.r.Status = tr(pinned)
 	case next < 0 || next >= len(m.replies):
-		m.r.Status = "Других ответов в эту сторону нет."
+		m.r.Status = tr("Других ответов в эту сторону нет.")
 	default:
 		m.load(next)
 	}
@@ -252,7 +254,7 @@ func (m *model) load(i int) {
 
 func (m *model) openList() {
 	if len(m.r.Comments) > 0 {
-		m.r.Status = pinned
+		m.r.Status = tr(pinned)
 		return
 	}
 	m.picking, m.sel, m.r.Status = true, m.pick, ""
@@ -294,7 +296,7 @@ type editedMsg struct{ err error }
 func (m *model) runEditor() tea.Cmd {
 	if len(m.r.Comments) > 0 {
 		if err := writePrompt(m.file, m.r.buildPrompt()); err != nil {
-			m.r.Status = "Не удалось записать промпт: " + err.Error()
+			m.r.Status = tr("Не удалось записать промпт: %v", err)
 			return nil
 		}
 	}
@@ -351,14 +353,14 @@ func (m *model) layout() {
 	w := m.inner()
 	m.header = nil
 	if m.r.Help {
-		m.header = []string{lipgloss.NewStyle().Bold(true).Render("inline-notes · клавиши") + " (в скобках — русская раскладка; любая клавиша закрывает)", ""}
+		m.header = []string{lipgloss.NewStyle().Bold(true).Render(tr("inline-notes · клавиши")) + tr(" (в скобках — русская раскладка; любая клавиша закрывает)"), ""}
 		m.rows, m.top, m.box = m.helpRows(), 0, -1
 		return
 	}
 	m.box = -1
 	if m.picking {
-		head := fmt.Sprintf("inline-notes · ответы сессии: %d", len(m.replies))
-		m.header = append(wrap(lipgloss.NewStyle().Bold(true).Render(head)+" · по одному на ваш запрос", w), wrap(m.hints(), w)...)
+		head := tr("inline-notes · ответы сессии: %d", len(m.replies))
+		m.header = append(wrap(lipgloss.NewStyle().Bold(true).Render(head)+tr(" · по одному на ваш запрос"), w), wrap(m.hints(), w)...)
 		m.header = append(m.header, accent.Faint(true).Render(strings.Repeat("─", w)))
 		m.rows = m.listRows()
 		m.fit()
@@ -393,28 +395,28 @@ func snippet(lines []string, w int) string {
 
 func (m model) title() []string {
 	r := m.r
-	parts := []string{fmt.Sprintf("строка %d/%d", r.Cursor+1, len(r.Lines))}
+	parts := []string{tr("строка %d/%d", r.Cursor+1, len(r.Lines))}
 	if r.Preview {
 		b := blockIndex(r.Blocks, r.Cursor)
-		parts = []string{fmt.Sprintf("блок %d/%d (%s)", b+1, len(r.Blocks), lineRef(r.Blocks[b].Start, r.Blocks[b].End))}
+		parts = []string{tr("блок %d/%d (%s)", b+1, len(r.Blocks), lineRef(r.Blocks[b].Start, r.Blocks[b].End))}
 	}
 	if r.Anchor >= 0 {
-		parts = append(parts, "выделение "+lineRef(r.currentRange()))
+		parts = append(parts, tr("выделение %s", lineRef(r.currentRange())))
 	}
-	parts = append(parts, fmt.Sprintf("комментариев: %d", len(r.Comments)))
-	head := fmt.Sprintf("inline-notes · ответ #%d из %d «%s»", r.Index, len(m.replies), snippet(r.Lines, 40))
+	parts = append(parts, tr("комментариев: %d", len(r.Comments)))
+	head := tr("inline-notes · ответ #%d из %d «%s»", r.Index, len(m.replies), snippet(r.Lines, 40))
 	return wrap(lipgloss.NewStyle().Bold(true).Render(head)+" · "+strings.Join(parts, " · "), m.inner())
 }
 
 func (m model) hints() string {
-	pairs := [][2]string{{"j/k", "строка"}, {"v", "выделить"}, {"Enter", "коммент"}, {"e", "правка"}, {"m", "рендер"}, {"r", "ответы"}, {"s", "в промпт"}, {"q", "отмена"}, {"?", "все клавиши"}}
+	pairs := [][2]string{{"j/k", tr("строка")}, {"v", tr("выделить")}, {"Enter", tr("коммент")}, {"e", tr("правка")}, {"m", tr("рендер")}, {"r", tr("ответы")}, {"s", tr("в промпт")}, {"q", tr("отмена")}, {"?", tr("все клавиши")}}
 	switch {
 	case m.picking:
-		pairs = [][2]string{{"j/k", "выбрать"}, {"Enter", "открыть"}, {"Esc", "назад"}}
+		pairs = [][2]string{{"j/k", tr("выбрать")}, {"Enter", tr("открыть")}, {"Esc", tr("назад")}}
 	case m.r.Draft != nil:
-		pairs = [][2]string{{"Enter", "сохранить"}, {"⇧Enter", "новая строка"}, {"Esc", "отмена"}}
+		pairs = [][2]string{{"Enter", tr("сохранить")}, {"⇧Enter", tr("новая строка")}, {"Esc", tr("отмена")}}
 	case m.r.Preview:
-		pairs[0][1], pairs[4][1] = "блок", "исходник"
+		pairs[0][1], pairs[4][1] = tr("блок"), tr("исходник")
 	}
 	var out []string
 	for _, p := range pairs {
@@ -439,9 +441,9 @@ func (m *model) draftRows(line int, at int) []row {
 	accent, _, _, _ := m.palette()
 	left, w := m.text()
 	d := m.r.Draft
-	title := "Новый комментарий к " + lineRef(d.Start, d.End)
+	title := tr("Новый комментарий к %s", lineRef(d.Start, d.End))
 	if d.ID != 0 {
-		title = fmt.Sprintf("Правка #%d к %s", d.ID, lineRef(d.Start, d.End))
+		title = tr("Правка #%d к %s", d.ID, lineRef(d.Start, d.End))
 	}
 	indent := strings.Repeat(" ", left)
 	top := "╭─ " + title + " "
@@ -516,11 +518,11 @@ func (m model) listRows() []row {
 		}
 		asked := strings.Join(strings.Fields(rp.Prompt), " ")
 		if asked == "" {
-			asked = "(без запроса)"
+			asked = tr("(без запроса)")
 		}
 		current := ""
 		if i == m.pick {
-			current = " · открыт"
+			current = tr(" · открыт")
 		}
 		num := fmt.Sprintf("#%-*d ", digits, i+1)
 		first := base.Inherit(accent).Render(mark) + base.Faint(true).Render(num) + base.Bold(true).Render(ansi.Truncate("› "+asked, text-ansi.StringWidth(current), "…")) + base.Faint(true).Render(current)
@@ -675,7 +677,7 @@ var helpKeys = [][2]string{
 	{"e (у), клик по комментарию", "править комментарий"},
 	{"d (в)", "удалить комментарий на строке"},
 	{"n / N (т / Т)", "следующий / предыдущий комментарий"},
-	{"m (ь)", "отрисованный markdown: курсор и комментарии — по блокам (абзац, пункт, таблица, код)"},
+	{"m (ь)", "исходник или отрисованный markdown (открывается он): в нём курсор и комментарии — по блокам (абзац, пункт, таблица, код)"},
 	{"r (к)", "список ответов сессии, по одному на ваш запрос: стрелками выбрать, Enter или клик — открыть"},
 	{"[ / ] (х / ъ)", "предыдущий / следующий ответ; к другому ответу — пока нет комментариев"},
 	{"s (ы)", "собрать комментарии в промпт и вернуться в Claude Code"},
@@ -690,7 +692,7 @@ func (m model) helpRows() []row {
 	left := min(42, w/2)
 	var out []row
 	for _, h := range helpKeys {
-		keys, what := wrap(h[0], left-2), wrap(h[1], w-left)
+		keys, what := wrap(tr(h[0]), left-2), wrap(tr(h[1]), w-left)
 		for k := 0; k < max(len(keys), len(what)); k++ {
 			l, r := "", ""
 			if k < len(keys) {

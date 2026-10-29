@@ -25,10 +25,11 @@ import (
 var claudePrompt = regexp.MustCompile(`^claude-prompt-.*\.md$`)
 
 func main() {
-	n := flag.Int("n", 0, "номер ответа Claude (1 — первый); по умолчанию последний")
-	transcript := flag.String("transcript", "", "транскрипт сессии (.jsonl); по умолчанию сессия, из которой открыт Ctrl+G")
+	langErr := setLang(os.Getenv(langEnv)) // before the flags, so -h speaks it too
+	n := flag.Int("n", 0, tr("номер ответа Claude (1 — первый); по умолчанию последний"))
+	transcript := flag.String("transcript", "", tr("транскрипт сессии (.jsonl); по умолчанию сессия, из которой открыт Ctrl+G"))
 	flag.Usage = func() {
-		_, _ = fmt.Fprintln(flag.CommandLine.Output(), "usage: inline-notes-tui [-n N] [-transcript FILE] [PROMPT_FILE]\nБез PROMPT_FILE промпт печатается в stdout.")
+		_, _ = fmt.Fprintln(flag.CommandLine.Output(), tr("usage: inline-notes-tui [-n N] [-transcript FILE] [PROMPT_FILE]\nБез PROMPT_FILE промпт печатается в stdout."))
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -36,13 +37,14 @@ func main() {
 	if file != "" && !claudePrompt.MatchString(filepath.Base(file)) {
 		plainEditor(file)
 	}
-	if err := run(file, *transcript, *n); err != nil {
+	if err := run(file, *transcript, *n, langErr); err != nil {
 		fmt.Fprintln(os.Stderr, "inline-notes-tui:", err)
 		os.Exit(1)
 	}
 }
 
-func run(file, transcript string, n int) error {
+// run reviews a reply of the transcript; langErr, a setting it could not read, is said in the header.
+func run(file, transcript string, n int, langErr error) error {
 	if transcript == "" {
 		cwd, _ := os.Getwd()
 		found, err := findTranscript(configDir(), os.Getppid(), cwd)
@@ -61,14 +63,18 @@ func run(file, transcript string, n int) error {
 		return noReplies(file, err)
 	}
 	if len(replies) == 0 {
-		return noReplies(file, errors.New("в сессии ещё нет ответов Claude"))
+		return noReplies(file, errors.New(tr("в сессии ещё нет ответов Claude")))
 	}
 	pick := len(replies) - 1
 	if n > 0 {
 		pick = min(n, len(replies)) - 1
 	}
 
-	final, err := tea.NewProgram(newModel(replies, pick, file)).Run()
+	start := newModel(replies, pick, file)
+	if langErr != nil {
+		start.r.Status = langErr.Error() // a typo in the setting never costs the review
+	}
+	final, err := tea.NewProgram(start).Run()
 	if err != nil {
 		return err
 	}
@@ -91,7 +97,7 @@ func noReplies(file string, why error) error {
 	if file == "" {
 		return why
 	}
-	fmt.Fprintf(os.Stderr, "inline-notes-tui: %v; открываю обычный редактор\n", why)
+	fmt.Fprint(os.Stderr, tr("inline-notes-tui: %v; открываю обычный редактор\n", why))
 	plainEditor(file)
 	return nil
 }
@@ -122,6 +128,6 @@ func plainEditor(file string) {
 	if err == nil {
 		err = syscall.Exec(path, append(argv, file), os.Environ())
 	}
-	fmt.Fprintln(os.Stderr, "inline-notes-tui: не удалось открыть редактор:", err)
+	fmt.Fprintln(os.Stderr, tr("inline-notes-tui: не удалось открыть редактор:"), err)
 	os.Exit(1)
 }

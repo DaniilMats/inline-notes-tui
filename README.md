@@ -2,10 +2,10 @@
 
 # inline-notes-tui
 
-**Review Claude Code's replies line by line, the way you review a pull request.**
+**Review Claude Code and Codex CLI replies line by line, the way you review a pull request.**
 
 Press `Ctrl+G` after a reply. It opens on the whole terminal, you leave comments on lines, ranges and blocks,<br>
-and one keypress puts every comment back in Claude Code's prompt box as a single prompt.
+and one keypress puts every comment back in the prompt box as a single prompt.
 
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](go.mod)
 [![Version](https://img.shields.io/github/v/tag/DaniilMats/inline-notes-tui?label=version&color=4c8bf5)](https://github.com/DaniilMats/inline-notes-tui/tags)
@@ -58,6 +58,20 @@ It needs Go 1.26 or newer; an older `go` downloads that toolchain on its own. Th
 
 `go env GOPATH` prints the folder; the binary is in its `bin`. The variable applies inside Claude Code only, your shell keeps its editor. Start a new Claude Code session to pick it up.
 
+### Codex CLI
+
+Start Codex with the same binary as its prompt editor:
+
+```sh
+VISUAL="$(go env GOPATH)/bin/inline-notes-tui" codex
+```
+
+For all new terminal sessions, add `export VISUAL="$HOME/go/bin/inline-notes-tui"` to your shell config (adjust the path if your GOPATH differs). Ordinary files still open in `$EDITOR`.
+
+After a reply, press `Ctrl+G`, then choose the conversation by name, project directory or session ID. Type to filter, use the arrows and Enter to select; Esc cancels, and Ctrl+E edits the draft normally. Codex does not pass the active session ID to external editors, so the picker always asks instead of guessing from the latest file or an inherited `CODEX_THREAD_ID`. The chosen conversation opens on its last final reply; `r` lists its replies.
+
+Reads local rollouts under `${CODEX_HOME:-~/.codex}/sessions` and `archived_sessions`, including both legacy events and paginated-history events. Names come from `session_index.jsonl`. Remote-only histories are not available locally. The editor-file integration is verified with Codex CLI 0.166.0; older versions with different temporary-file paths can use `-transcript /path/to/rollout.jsonl` manually.
+
 ### Language
 
 The interface and the prompt are in Russian unless `INLINE_NOTES_LANG` is `en`, which switches both to English. Set it beside `VISUAL`:
@@ -89,7 +103,7 @@ After Claude replies, press `Ctrl+G`. The last reply opens as rendered Markdown;
 | `m` | Switch between source and rendered Markdown |
 | `r` | The session's replies: pick one, `Enter` or a click opens it |
 | `[` / `]` | Previous / next reply |
-| `s` | Put the comments in the prompt box and return to Claude Code |
+| `s` | Put the comments in the prompt box and return to the agent |
 | `ctrl+e` | Open the prompt, comments included, in your usual editor |
 | `q` | Leave without changes (press twice if there are comments) |
 | `?` | All keys |
@@ -98,7 +112,7 @@ In a comment, `Enter` saves it, `⇧Enter` (or `alt+Enter`, `ctrl+j`) starts a n
 
 ## Your usual editor
 
-`ctrl+e`, a session with no replies yet, and any file that is not Claude Code's prompt all go to a plain editor: `$FB_EDITOR`, else `$EDITOR`, else `vi`. Its exit code is the program's.
+`ctrl+e`, a session with no replies yet, and any file that is not a Claude Code or Codex prompt all go to a plain editor: `$FB_EDITOR`, else `$EDITOR`, else `vi`. Its exit code is the program's.
 
 ## How it works
 
@@ -108,7 +122,7 @@ In a comment, `Enter` saves it, `⇧Enter` (or `alt+Enter`, `ctrl+j`) starts a n
 
 ## Limitations
 
-- Claude Code waits while the review is open, so review a reply once Claude has finished it.
+- The CLI waits while the review is open, so review a reply once the agent has finished it. `s` returns a draft; it never sends it.
 - The Claude desktop app has no terminal for the program to open in, so `Ctrl+G` there will most likely not work (untested).
 
 For a review pane beside the conversation, which also works in the desktop app, see the [inline-notes](https://github.com/DaniilMats/inline-notes) plugin.
@@ -123,6 +137,8 @@ go run . -transcript ~/.claude/projects/<cwd>/<session>.jsonl   # review a trans
 ```
 
 The review logic is pure state transitions in [`review.go`](review.go), the screen is [`ui.go`](ui.go) (bubbletea), and [`transcript.go`](transcript.go) finds the session and its replies. The code says everything in Russian; [`i18n.go`](i18n.go) holds the English for each string, and a test fails when one is missing.
+
+[`codex.go`](codex.go) reads Codex's local sessions and user/assistant UI events, excluding reasoning, tool output and duplicate model-history records. [`codex_picker.go`](codex_picker.go) selects the conversation. These local file formats are internal to Codex and may change between versions.
 
 ## License
 

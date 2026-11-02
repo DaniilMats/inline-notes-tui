@@ -44,11 +44,16 @@ func tr(text string, args ...any) string {
 // en is the English for every Russian string in the code; a test keeps it complete.
 var en = map[string]string{
 	// main.go and transcript.go
-	"номер ответа Claude (1 — первый); по умолчанию последний":                                                     "Claude's reply number (1 is the first); the last by default",
+	"номер ответа (1 — первый); по умолчанию последний":                                                            "reply number (1 is the first); the last by default",
 	"транскрипт сессии (.jsonl); по умолчанию сессия, из которой открыт Ctrl+G":                                    "the session transcript (.jsonl); by default the session Ctrl+G was opened from",
 	"usage: inline-notes-tui [-n N] [-transcript FILE] [PROMPT_FILE]\nБез PROMPT_FILE промпт печатается в stdout.": "usage: inline-notes-tui [-n N] [-transcript FILE] [PROMPT_FILE]\nWithout PROMPT_FILE the prompt is printed to stdout.",
 	"%s=%q: ожидается ru или en, остаётся русский":                                                                 "%s=%q: expected ru or en, Russian is kept",
-	"в сессии ещё нет ответов Claude":                                                                              "the session has no replies from Claude yet",
+	"в сессии ещё нет ответов":                                                                                     "the session has no replies yet",
+	"нет локальных сессий Codex":                                                                                   "no local Codex sessions",
+	"Название, папка или ID сессии":                                                                                "Session name, directory or ID",
+	"Codex · выберите сессию для комментариев":                                                                     "Codex · choose the session to review",
+	"↑/↓ выбрать · Enter открыть · Esc отменить · ctrl+e редактор":                                                 "Up/Down choose · Enter open · Esc cancel · ctrl+e editor",
+	"Сессии не найдены":                                                                                            "No matching sessions",
 	"inline-notes-tui: %v; открываю обычный редактор\n":                                                            "inline-notes-tui: %v; opening the plain editor\n",
 	"inline-notes-tui: не удалось открыть редактор:":                                                               "inline-notes-tui: could not open the editor:",
 	"нет транскриптов сессий для %s: %w":                                                                           "no session transcripts for %s: %w",
@@ -133,7 +138,7 @@ var en = map[string]string{
 	"[ / ] (х / ъ)": "[ / ]",
 	"предыдущий / следующий ответ; к другому ответу — пока нет комментариев": "previous / next reply; another reply opens only while there are no comments",
 	"s (ы)": "s",
-	"собрать комментарии в промпт и вернуться в Claude Code":          "put the comments in the prompt and return to Claude Code",
+	"собрать комментарии и вернуться в поле ввода":                    "put the comments in the prompt and return to the input box",
 	"открыть промпт (с собранными комментариями) в обычном редакторе": "open the prompt, comments included, in the plain editor",
 	"q (й), ctrl+c": "q, ctrl+c",
 	"выйти без изменений; с комментариями — двойным нажатием": "leave without changes; with comments, press twice",

@@ -1,9 +1,9 @@
-// inline-notes-tui reviews a Claude Code reply line by line, like a pull request, and hands
+// inline-notes-tui reviews a Claude Code or Codex reply line by line and hands
 // the comments back as one prompt.
 //
-// Set as Claude Code's prompt editor (`"env": {"VISUAL": "inline-notes-tui"}` in settings.json),
-// Ctrl+G opens it over the session's last reply; `s` writes the prompt after whatever was in
-// the prompt box, and Claude Code puts it back there. Any other file it is asked to edit (a git
+// Set VISUAL to this binary in the shell (Codex) or settings.json (Claude Code).
+// Ctrl+G opens the review; `s` writes the prompt after whatever was in
+// the prompt box, and the agent puts it back there. Any other file it is asked to edit (a git
 // commit message, say) goes to a plain editor: $FB_EDITOR, $EDITOR, else vi.
 package main
 
@@ -26,7 +26,7 @@ var claudePrompt = regexp.MustCompile(`^claude-prompt-.*\.md$`)
 
 func main() {
 	langErr := setLang(os.Getenv(langEnv)) // before the flags, so -h speaks it too
-	n := flag.Int("n", 0, tr("номер ответа Claude (1 — первый); по умолчанию последний"))
+	n := flag.Int("n", 0, tr("номер ответа (1 — первый); по умолчанию последний"))
 	transcript := flag.String("transcript", "", tr("транскрипт сессии (.jsonl); по умолчанию сессия, из которой открыт Ctrl+G"))
 	flag.Usage = func() {
 		_, _ = fmt.Fprintln(flag.CommandLine.Output(), tr("usage: inline-notes-tui [-n N] [-transcript FILE] [PROMPT_FILE]\nБез PROMPT_FILE промпт печатается в stdout."))
@@ -34,7 +34,7 @@ func main() {
 	}
 	flag.Parse()
 	file := flag.Arg(0)
-	if file != "" && !claudePrompt.MatchString(filepath.Base(file)) {
+	if file != "" && !claudePrompt.MatchString(filepath.Base(file)) && !isCodexPrompt(file) {
 		plainEditor(file)
 	}
 	if err := run(file, *transcript, *n, langErr); err != nil {
@@ -45,6 +45,16 @@ func main() {
 
 // run reviews a reply of the transcript; langErr, a setting it could not read, is said in the header.
 func run(file, transcript string, n int, langErr error) error {
+	if transcript == "" && isCodexPrompt(file) {
+		chosen, err := chooseCodexSession(codexHome(), file)
+		if err != nil {
+			return noReplies(file, err)
+		}
+		if chosen == "" {
+			return nil // cancelled: do not fall back to a Claude session
+		}
+		transcript = chosen
+	}
 	if transcript == "" {
 		cwd, _ := os.Getwd()
 		found, err := findTranscript(configDir(), os.Getppid(), cwd)
@@ -57,13 +67,13 @@ func run(file, transcript string, n int, langErr error) error {
 	if err != nil {
 		return noReplies(file, err)
 	}
-	replies, err := readReplies(f)
+	replies, err := readSessionReplies(f)
 	_ = f.Close() // read-only
 	if err != nil {
 		return noReplies(file, err)
 	}
 	if len(replies) == 0 {
-		return noReplies(file, errors.New(tr("в сессии ещё нет ответов Claude")))
+		return noReplies(file, errors.New(tr("в сессии ещё нет ответов")))
 	}
 	pick := len(replies) - 1
 	if n > 0 {

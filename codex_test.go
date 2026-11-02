@@ -96,6 +96,45 @@ func TestSessionPickerDoesNotGuessFromInheritedThread(t *testing.T) {
 	}
 }
 
+func TestResumedCodexSession(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	for command, want := range map[string]string{
+		"/usr/local/bin/codex resume " + id:          id,
+		"codex --no-daemon -C /project resume " + id: id,
+		"codex resume " + id + " --no-alt-screen":    id,
+		"codex":                          "",
+		"codex resume --last":            "",
+		"codex resume session-name":      "",
+		"python3 script.py resume " + id: "",
+		"codex exec resume " + id:        "",
+		"codex some-prompt resume " + id: "",
+		"codex resume ../../outside":     "",
+	} {
+		if got := resumedCodexSession(command); got != want {
+			t.Errorf("%q: got %q, want %q", command, got, want)
+		}
+	}
+}
+
+func TestCurrentCodexSessionUsesParentInsteadOfNewestOrInheritedSession(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	t.Setenv("CODEX_THREAD_ID", "other")
+	t.Setenv("CODEX_SESSION_ID", "other")
+	dir := t.TempDir()
+	ps := filepath.Join(dir, "ps")
+	if err := os.WriteFile(ps, []byte("#!/bin/sh\nprintf '%s\\n' 'codex resume "+id+"'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	sessions := []codexSession{{id: "other", path: "newest.jsonl"}, {id: id, path: "current.jsonl"}}
+	if got := currentCodexSession(sessions, 42); got != "current.jsonl" {
+		t.Fatalf("got %q", got)
+	}
+	if got := currentCodexSession(sessions[:1], 42); got != "" {
+		t.Fatalf("missing session must not select another: %q", got)
+	}
+}
+
 func TestCodexRollbackAndFinalWithoutNewline(t *testing.T) {
 	rows := `{"type":"event_msg","payload":{"type":"user_message","message":"old"}}
 {"type":"event_msg","payload":{"type":"task_complete","last_agent_message":"removed"}}

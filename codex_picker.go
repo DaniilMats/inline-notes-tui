@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
@@ -108,6 +109,9 @@ func chooseCodexSession(home, file string) (string, error) {
 	sessions, err := codexSessions(home)
 	if err != nil {
 		return "", err
+	}
+	if current := currentCodexSession(sessions, os.Getppid()); current != "" {
+		return current, nil
 	}
 	final, err := tea.NewProgram(newSessionPicker(sessions)).Run()
 	if err != nil {

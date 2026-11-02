@@ -3,12 +3,16 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -137,8 +141,54 @@ type codexSession struct {
 	updated              time.Time
 }
 
-// The editor receives no session ID, even when CODEX_THREAD_ID is inherited from a different
-// agent. Offer named local sessions instead of guessing from cwd or the newest transcript.
+var codexSessionID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// Read the actual editor's parent, not CODEX_THREAD_ID inherited from another agent.
+// shortcut: resume identifies the launch session; use a live ID when Codex exports one to editors.
+func currentCodexSession(sessions []codexSession, pid int) string {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, "ps", "-ww", "-p", strconv.Itoa(pid), "-o", "args=").Output()
+	if err != nil {
+		return ""
+	}
+	id := resumedCodexSession(string(output))
+	for _, session := range sessions {
+		if session.id == id {
+			return session.path
+		}
+	}
+	return ""
+}
+
+func resumedCodexSession(command string) string {
+	args := strings.Fields(command)
+	if len(args) == 0 || filepath.Base(args[0]) != "codex" {
+		return ""
+	}
+	for i := 1; i < len(args); i++ {
+		arg := args[i]
+		if arg == "resume" {
+			if i+1 < len(args) && codexSessionID.MatchString(args[i+1]) {
+				return args[i+1]
+			}
+			return ""
+		}
+		key, _, inline := strings.Cut(arg, "=")
+		switch key {
+		case "-c", "--config", "-C", "--cd", "-m", "--model", "-p", "--profile", "-s", "--sandbox", "-a", "--ask-for-approval", "--enable", "--disable", "--add-dir":
+			if !inline {
+				i++
+			}
+		case "--no-daemon", "--no-alt-screen", "--search", "--approve-for-me", "--strict-config", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust":
+		default:
+			return ""
+		}
+	}
+	return ""
+}
+
+// List local sessions for explicit ID lookup and the fallback picker.
 func codexSessions(home string) ([]codexSession, error) {
 	titles := map[string]string{}
 	if f, err := os.Open(filepath.Join(home, "session_index.jsonl")); err == nil {

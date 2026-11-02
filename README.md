@@ -68,7 +68,9 @@ VISUAL="$(go env GOPATH)/bin/inline-notes-tui" codex
 
 For all new terminal sessions, add `export VISUAL="$HOME/go/bin/inline-notes-tui"` to your shell config (adjust the path if your GOPATH differs). Ordinary files still open in `$EDITOR`.
 
-After a reply, press `Ctrl+G`, then choose the conversation by name, project directory or session ID. Type to filter, use the arrows and Enter to select; Esc cancels, and Ctrl+E edits the draft normally. Codex does not pass the active session ID to external editors, so the picker always asks instead of guessing from the latest file or an inherited `CODEX_THREAD_ID`. The chosen conversation opens on its last final reply; `r` lists its replies.
+After a reply, press `Ctrl+G`. When Codex was launched with `codex resume <session-ID>`, that conversation opens directly on its last final reply; `r` lists its replies. The ID comes from the editor's parent process, not the newest transcript or an inherited `CODEX_THREAD_ID`.
+
+Other launches show a session picker: filter by name, project directory or ID, then use the arrows and Enter to select. Esc cancels; Ctrl+E edits the draft normally. Codex does not pass the live session ID to external editors. If you switch conversations with `/new` or `/resume` inside a running Codex, the launch ID stays unchanged: restart with `codex resume <new-session-ID>` before using Ctrl+G.
 
 Reads local rollouts under `${CODEX_HOME:-~/.codex}/sessions` and `archived_sessions`, including both legacy events and paginated-history events. Names come from `session_index.jsonl`. Remote-only histories are not available locally. The editor-file integration is verified with Codex CLI 0.166.0; older versions with different temporary-file paths can use `-transcript /path/to/rollout.jsonl` manually.
 

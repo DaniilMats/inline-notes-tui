@@ -71,9 +71,10 @@ type transcriptRow struct {
 	IsMeta           bool   `json:"isMeta"`
 	IsCompactSummary bool   `json:"isCompactSummary"`
 	Message          struct {
-		ID      string          `json:"id"`
-		Model   string          `json:"model"`
-		Content json.RawMessage `json:"content"`
+		ID         string          `json:"id"`
+		Model      string          `json:"model"`
+		StopReason string          `json:"stop_reason"`
+		Content    json.RawMessage `json:"content"`
 	} `json:"message"`
 }
 
@@ -121,13 +122,15 @@ func promptOf(row transcriptRow) (string, bool) {
 }
 
 // readReplies returns the session's replies, a turn each, in order. A turn runs from one of
-// the person's prompts to the next; its reply is the last message in it with text, so the short
-// notes Claude writes between tool calls are not replies. Claude Code writes a message a content
-// block per row, all under the message's id. Subagents' rows and synthetic messages are skipped.
+// the person's prompts to the next, or ends with a finished message when Claude goes on without
+// a prompt, as it does when a subagent hands back in a meta row. A turn's reply is the last
+// message in it with text, so the short notes Claude writes between tool calls are not replies.
+// Claude Code writes a message a content block per row, all under the message's id. Subagents'
+// rows and synthetic messages are skipped.
 func readReplies(r io.Reader) ([]Reply, error) {
 	var replies []Reply
 	texts := map[string][]string{}
-	prompt, last := "", ""
+	prompt, last, finished := "", "", ""
 	flush := func() {
 		if last != "" {
 			replies = append(replies, Reply{Text: strings.TrimSpace(strings.Join(texts[last], "\n\n")), Prompt: prompt})
@@ -148,6 +151,13 @@ func readReplies(r io.Reader) ([]Reply, error) {
 					prompt = p
 				}
 			case row.Type == "assistant" && row.Message.Model != "<synthetic>":
+				if finished != "" && finished != row.Message.ID {
+					flush()
+				}
+				finished = ""
+				if row.Message.StopReason == "end_turn" {
+					finished = row.Message.ID
+				}
 				var blocks []contentBlock
 				if json.Unmarshal(row.Message.Content, &blocks) == nil {
 					for _, b := range blocks {

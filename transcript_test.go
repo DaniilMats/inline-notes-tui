@@ -46,6 +46,35 @@ func TestRepliesAreTurns(t *testing.T) {
 	}
 }
 
+// A finished subagent wakes Claude with a meta row and no prompt: the answer it finished
+// before that stays a reply of its own, and the notes between tool calls still do not.
+func TestFinishedAnswerSurvivesHandback(t *testing.T) {
+	rows := strings.Join([]string{
+		`{"type":"user","message":{"role":"user","content":"вопрос"}}`,
+		`{"type":"assistant","message":{"id":"m1","model":"c","stop_reason":"tool_use","content":[{"type":"text","text":"смотрю файлы"}]}}`,
+		`{"type":"assistant","message":{"id":"m2","model":"c","stop_reason":"end_turn","content":[{"type":"thinking","thinking":"..."}]}}`,
+		`{"type":"assistant","message":{"id":"m2","model":"c","stop_reason":"end_turn","content":[{"type":"text","text":"ответ"}]}}`,
+		`{"type":"assistant","message":{"id":"m2","model":"c","stop_reason":"end_turn","content":[{"type":"text","text":"целиком"}]}}`,
+		`{"type":"user","isMeta":true,"origin":{"kind":"peer"},"message":{"role":"user","content":"отчёт субагента"}}`,
+		`{"type":"assistant","message":{"id":"m3","model":"c","stop_reason":"tool_use","content":[{"type":"text","text":"проверяю отчёт"}]}}`,
+		`{"type":"assistant","message":{"id":"m4","model":"c","stop_reason":"end_turn","content":[{"type":"text","text":"итог по отчёту"}]}}`,
+		`{"type":"user","message":{"role":"user","content":"следующий"}}`,
+		`{"type":"assistant","message":{"id":"m5","model":"c","stop_reason":"end_turn","content":[{"type":"text","text":"ещё ответ"}]}}`,
+	}, "\n")
+	got, err := readReplies(strings.NewReader(rows))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Reply{
+		{Text: "ответ\n\nцеликом", Prompt: "вопрос"},
+		{Text: "итог по отчёту", Prompt: "вопрос"},
+		{Text: "ещё ответ", Prompt: "следующий"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("replies %q", got)
+	}
+}
+
 func TestFindTranscript(t *testing.T) {
 	config := t.TempDir()
 	cwd := "/Users/x/my.project"
